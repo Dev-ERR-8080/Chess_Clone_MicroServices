@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile default="true" name="Default" enabled="true" />
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="user_profile_service" />
+        <module name="timer_referee_service" />
+        <module name="matchmaking_service" />
+        <module name="AG_service" />
+      </profile>
+      <profile name="Annotation profile for IAM_service" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.42/lombok-1.18.42.jar" />
+        </processorPath>
+        <module name="IC_service" />
+        <module name="IAM_service" />
+      </profile>
+      <profile name="Annotation profile for game_engine_service" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.30/lombok-1.18.30.jar" />
+        </processorPath>
+        <module name="common_events" />
+        <module name="game_engine_service" />
+      </profile>
+    </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="Chess_Clone_MicroServices" target="1.5" />
+    </bytecodeTargetLevel>
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="AG_service" options="-parameters" />
+      <module name="IAM_service" options="-parameters" />
+      <module name="IC_service" options="-parameters" />
+      <module name="common_events" options="" />
+      <module name="game_engine_service" options="-parameters" />
+      <module name="matchmaking_service" options="-parameters" />
+      <module name="timer_referee_service" options="-parameters" />
+      <module name="user_profile_service" options="-parameters" />
+    </option>
+  </component>
+</project>
