@@ -23,28 +23,36 @@ public class MatchFoundListener {
 
     @RabbitListener(queues = RabbitConfig.MATCH_FOUND_QUEUE)
     public void onMatchFound(MatchFoundEvent event) {
+        try {
+            System.out.println("🎯 MATCH FOUND EVENT RECEIVED: " + event.getMatchId());
 
-        System.out.println("🎯 MATCH FOUND EVENT RECEIVED: " + event.getMatchId());
+            gameStateService.initializeMatch(
+                    event.getMatchId(),
+                    event.getPlayer1Id(),
+                    event.getPlayer2Id(),
+                    event.getGameType().name()
+            );
+            messagingTemplate.convertAndSendToUser(
+                    event.player1Id().toString(),
+                    "/queue/match-found",
+                    event
+            );
+            System.out.println("✅ WS dispatch completed → userId={}" + event.player1Id());
 
-        gameStateService.initializeMatch(
-                event.getMatchId(),
-                event.getPlayer1Id(),
-                event.getPlayer2Id(),
-                event.getGameType().name()
-        );
-        messagingTemplate.convertAndSendToUser(
-                event.player1Id().toString(),
-                "/queue/match-found",
-                event
-        );
-        System.out.println("✅ WS dispatch completed → userId={}"+ event.player1Id());
-
-        messagingTemplate.convertAndSendToUser(
-                event.player2Id().toString(),
-                "/queue/match-found",
-                event
-        );
-        System.out.println("✅ WS dispatch completed → userId={}"+ event.player2Id());
-        timerClient.startTimer(new TimerInitDTO(event.getMatchId(),event.getGameType().name()));
+            messagingTemplate.convertAndSendToUser(
+                    event.player2Id().toString(),
+                    "/queue/match-found",
+                    event
+            );
+            System.out.println("✅ WS dispatch completed → userId={}" + event.player2Id());
+            try {
+                System.out.println("MatchId: "+event.getMatchId()+"GameType: "+event.getGameType());
+                timerClient.startTimer(new TimerInitDTO(event.getMatchId(), event.getGameType().name()));
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to start timer service for match: " + event.matchId());
+            }
+        } catch (Exception e){
+            System.out.println(" Unexpected runtime error in game engine service: "+e.getMessage());
+        }
     }
 }

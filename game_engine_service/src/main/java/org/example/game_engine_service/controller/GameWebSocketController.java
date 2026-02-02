@@ -63,8 +63,8 @@ public class GameWebSocketController {
                         userId
                 );
 
-//        String nextTurn = newFen.contains(" w ") ? "WHITE" : "BLACK";
-//        timerClient.switchTurn(new TurnSwitchDTO(dto.matchId(), nextTurn));
+        String nextTurn = newFen.contains(" w ") ? "WHITE" : "BLACK";
+        timerClient.switchTurn(new TurnSwitchDTO(dto.matchId(), nextTurn));
 
         RedisMoveEvent event = new RedisMoveEvent(
                 dto.matchId(),

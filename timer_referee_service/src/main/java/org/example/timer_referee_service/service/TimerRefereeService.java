@@ -1,5 +1,7 @@
 package org.example.timer_referee_service.service;
 
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -11,11 +13,13 @@ import java.util.Set;
 
 @Service
 public class TimerRefereeService {
-
+    @Autowired
     private RedisTemplate<String, Object> redisTemplate;
-    private SimpMessagingTemplate messagingTemplate;
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
 
     private static final String TIMER_KEY_PREFIX = "timer:match:";
+    private static final String REDIS_TOPIC_PREFIX = "match:";
 
     public void initializeTimer(String matchId, String gameType) {
         long base = switch (gameType) {
@@ -70,7 +74,8 @@ public class TimerRefereeService {
     public void globalTick() {
         // Retrieve all active timer keys from Redis
         Set<String> keys = redisTemplate.keys(TIMER_KEY_PREFIX + "*");
-
+        System.out.println("[TIMER] Scanning... Found " + (keys != null ? keys.size() : 0) + " active matches.");
+        if(keys == null || keys.isEmpty()) return;
         for (String key : keys) {
             processMatchTick(key);
         }
@@ -78,16 +83,16 @@ public class TimerRefereeService {
 
     private void processMatchTick(String key) {
         Map<Object, Object> state = redisTemplate.opsForHash().entries(key);
-        if (!"ONGOING".equals(state.get("status"))) return;
+        if (state.isEmpty() || !"ONGOING".equals(state.get("status"))) return;
 
         long now = System.currentTimeMillis();
-        long lastTick = Long.parseLong((String) state.get("lastTickAt"));
+        long lastTick = getLongFromRedis(state.get("lastTickAt"));
         long elapsed = now - lastTick;
 
-        String turn = (String) state.get("activeTurn");
+        String turn = state.get("activeTurn").toString().replace("\"", "");
         String timeKey = turn.equals("WHITE") ? "whiteTimeMs" : "blackTimeMs";
 
-        long currentTime = Long.parseLong((String) state.get(timeKey));
+        long currentTime = getLongFromRedis(state.get(timeKey));
         long newTime = Math.max(0, currentTime - elapsed);
 
         // Update Redis
@@ -96,13 +101,19 @@ public class TimerRefereeService {
 
         String matchId = key.replace(TIMER_KEY_PREFIX, "");
 
-        // BROADCAST TICK
-        messagingTemplate.convertAndSend("/topic/match/" + matchId, Optional.of(Map.of(
+        long whiteTime = getLongFromRedis(state.get("whiteTimeMs"));
+        long blackTime = getLongFromRedis(state.get("blackTimeMs"));
+
+       Map<String,Object> tickPayload = Map.of(
                 "type", "TICK",
-                "whiteTimeMs", (turn.equals("WHITE") ? newTime : (long) state.get("whiteTimeMs")),
-                "blackTimeMs", (turn.equals("BLACK") ? newTime : (long) state.get("blackTimeMs")),
+                "matchId",matchId,
+                "whiteTimeMs", whiteTime,
+                "blackTimeMs", blackTime,
                 "turn", turn
-        )));
+        );
+        // BROADCAST TICK
+        System.out.println("[TIMER] Publishing Tick for Match: " + matchId + " | White: " + whiteTime + " | Black: " + blackTime);
+        redisTemplate.convertAndSend(REDIS_TOPIC_PREFIX + matchId, tickPayload);
 
         // TIMEOUT CHECK
         if (newTime <= 0) {
@@ -116,9 +127,23 @@ public class TimerRefereeService {
         // Notify Game Service via Feign Client or Kafka to finalize result
         // gameServiceClient.notifyTimeout(matchId, loserColor);
 
-        messagingTemplate.convertAndSend("/topic/match/" + matchId, Optional.of(Map.of(
+        Map<String, Object> timeOutEvent =Map.of(
                 "type", "TIMEOUT",
-                "loser", loserColor
-        )));
+                "matchId", matchId,
+                "winner", loserColor.equals("WHITE")? "BLACK" :"WHITE",
+                "loser", loserColor,
+                "reason","TIME RAN OUT"
+        );
+
+        redisTemplate.convertAndSend(REDIS_TOPIC_PREFIX+matchId,timeOutEvent);
+        rabbitTemplate.convertAndSend("game.commands.exchange", "game.timeout.key", timeOutEvent);
+    }
+
+    // Safe conversion helper
+    private long getLongFromRedis(Object value) {
+        if (value == null) return 0L;
+        // Remove extra quotes if Jackson added them
+        String cleanValue = value.toString().replace("\"", "");
+        return Long.parseLong(cleanValue);
     }
 }

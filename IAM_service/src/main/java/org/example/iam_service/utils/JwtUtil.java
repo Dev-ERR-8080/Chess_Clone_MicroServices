@@ -60,4 +60,3 @@ public class JwtUtil {
                 && extractClaims(token).getExpiration().after(new Date());
     }
 }
-
